@@ -1,0 +1,107 @@
+use std::str::FromStr;
+use crate::ast::{Operator, Expression};
+
+grammar;
+
+pub UnaryOp: Operator = {
+    "-" => Operator::SUB,
+    "!" => Operator::NOT,
+};
+
+pub MulOp: Operator = {
+    "*" => Operator::MUL,
+    "/" => Operator::DIV,
+    "%" => Operator::REM,
+};
+
+pub AddOp: Operator = {
+    "+" => Operator::ADD,
+    "-" => Operator::SUB,
+};
+
+pub LogicAndOp: Operator = {
+    "&&" => Operator::AND,
+};
+
+pub LogicOrOp: Operator = {
+    "||" => Operator::OR,
+};
+
+pub RelOp: Operator = {
+    "<" => Operator::LT,
+    "<=" => Operator::LE,
+    ">" => Operator::GT,
+    ">=" => Operator::GE,
+};
+
+pub EqOp: Operator = {
+    "==" => Operator::EQ,
+    "!=" => Operator::NEQ,
+};
+
+pub Number: f64 = {
+    r"[+-]?(\d+\.\d*|\d*\.\d+|\d+)([eE][+-]?\d+)?" => f64::from_str(<>).unwrap()
+};
+
+pub Ident: String = {
+    r"[A-Za-z][A-Za-z0-9_]*" => String::from_str(<>).unwrap()
+};
+
+Comma<T>: Vec<T> = {
+    <mut v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+pub Exprs = Comma<Expr>;
+
+pub Factor: Box<Expression> = {
+    Number => Box::new(Expression::Number(<>)),
+    UnaryOp Factor => Box::new(Expression::Unary(<>)),
+    "(" <Expr> ")",
+    Ident => Box::new(Expression::Variable(<>)),
+    <Ident> "(" <Exprs> ")" => Box::new(Expression::Function(<>)),
+};
+
+pub Multiplicative: Box<Expression> = {
+    Factor,
+    Multiplicative MulOp Factor => Box::new(Expression::Binary(<>)),
+};
+
+pub Additive: Box<Expression> = {
+    Multiplicative,
+    Additive AddOp Multiplicative => Box::new(Expression::Binary(<>)),
+};
+
+pub Relational: Box<Expression> = {
+    Additive,
+    Relational RelOp Additive => Box::new(Expression::Binary(<>)),
+};
+
+pub Equality: Box<Expression> = {
+    Relational,
+    Equality EqOp Relational => Box::new(Expression::Binary(<>)),
+};
+
+pub LogicAnd: Box<Expression> = {
+    Equality,
+    LogicAnd LogicAndOp Equality => Box::new(Expression::Binary(<>)),
+};
+
+pub LogicOr: Box<Expression> = {
+    LogicAnd,
+    LogicOr LogicOrOp LogicAnd => Box::new(Expression::Binary(<>)),
+};
+
+pub Conditional: Box<Expression> = {
+    LogicOr,
+    <LogicOr> "?" <Expr> ":" <Conditional> => Box::new(Expression::Ternary(<>)),
+};
+
+pub Expr: Box<Expression> = {
+    Conditional,
+};
